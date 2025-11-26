@@ -1,0 +1,74 @@
+{
+  "name": "nano-rfc6902",
+  "version": "0.0.2",
+  "type": "module",
+  "description": "Lightweight JSON Patch (RFC 6902) utilities for Node.js and the browser",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "coverage": "vitest --coverage run",
+    "prettier": "prettier --write .",
+    "lint": "eslint . --cache",
+    "lint:fix": "eslint . --cache --fix",
+    "size": "npm run build && size-limit",
+    "check": "npm run prettier && npm run lint && npm run coverage && npm run size",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "prettier --write",
+      "eslint --cache --fix"
+    ]
+  },
+  "devDependencies": {
+    "@size-limit/preset-app": "^11.2.0",
+    "@types/node": "24.10.1",
+    "@vitest/coverage-v8": "4.0.14",
+    "@vitest/ui": "4.0.14",
+    "eslint": "9.39.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "vite": "7.2.4",
+    "vite-plugin-dts": "4.5.4",
+    "vitest": "4.0.14"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "json-patch",
+    "rfc6902",
+    "rfc-6902",
+    "json-pointer",
+    "rfc6901",
+    "diff",
+    "patch",
+    "typescript",
+    "esm",
+    "cjs",
+    "node",
+    "browser"
+  ],
+  "author": "",
+  "license": "BSD-3-Clause"
+}
