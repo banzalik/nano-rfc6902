@@ -1,6 +1,6 @@
 {
   "name": "nano-rfc6902",
-  "version": "0.0.2",
+  "version": "1.0.0",
   "type": "module",
   "description": "Lightweight JSON Patch (RFC 6902) utilities for Node.js and the browser",
   "main": "./dist/index.cjs",
@@ -70,5 +70,13 @@
     "browser"
   ],
   "author": "",
-  "license": "BSD-3-Clause"
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/banzalik/nano-rfc6902.git"
+  },
+  "bugs": {
+    "url": "https://github.com/banzalik/nano-rfc6902/issues"
+  },
+  "homepage": "https://github.com/banzalik/nano-rfc6902#readme"
 }

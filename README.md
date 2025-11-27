@@ -3,9 +3,13 @@
 Lightweight JSON Patch (RFC 6902) utilities for Node.js and the browser.
 
 [![npm version](https://img.shields.io/npm/v/nano-rfc6902)](https://www.npmjs.com/package/nano-rfc6902)
+[![npm downloads](https://img.shields.io/npm/dm/nano-rfc6902)](https://www.npmjs.com/package/nano-rfc6902)
+[![CI](https://github.com/banzalik/nano-rfc6902/actions/workflows/ci.yml/badge.svg)](https://github.com/banzalik/nano-rfc6902/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/nano-rfc6902)](https://github.com/banzalik/nano-rfc6902/blob/main/LICENSE)
 [![zero deps](https://img.shields.io/badge/deps-0-brightgreen)](https://www.npmjs.com/package/nano-rfc6902)
 [![types](https://img.shields.io/badge/types-TypeScript-3178c6)](https://www.npmjs.com/package/nano-rfc6902)
 [![bundle size](https://badgen.net/bundlephobia/minzip/nano-rfc6902)](https://bundlephobia.com/package/nano-rfc6902)
+[![node version](https://img.shields.io/node/v/nano-rfc6902)](https://www.npmjs.com/package/nano-rfc6902)
 
 Highlights:
 - Zero dependencies
