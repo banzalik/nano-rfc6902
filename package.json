@@ -1,6 +1,6 @@
 {
   "name": "nano-rfc6902",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Lightweight JSON Patch (RFC 6902) utilities for Node.js and the browser",
   "main": "./dist/index.cjs",
