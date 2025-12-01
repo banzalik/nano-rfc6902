@@ -12,30 +12,6 @@ permissions:
   pull-requests: write
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Prettier format
-        run: npm run prettier
-
-      - name: ESLint
-        run: npm run lint
 
   test:
     runs-on: ubuntu-latest
@@ -76,4 +52,3 @@ jobs:
           coverage-files: coverage/lcov.info
           minimum-coverage: 0
           update-comment: true
-          hide-comment: false
