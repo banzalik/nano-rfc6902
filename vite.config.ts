@@ -5,16 +5,25 @@ import dts from "vite-plugin-dts";
 export default defineConfig({
   plugins: [
     dts({
-      include: ["src"],
+      // Only generate types for public entry points (avoid tests/internal folders)
+      include: ["src/index.ts", "src/isSafeApply.ts"],
+      // Exclude all test sources under src
+      exclude: ["src/tests/**", "src/utils/tests/**", "**/*.test.ts"],
+      // Emit a .d.ts per public entry (no rollup) at project root
       insertTypesEntry: true,
     }),
   ],
   build: {
     lib: {
-      entry: resolve(__dirname, "src/index.ts"),
+      entry: {
+        index: resolve(__dirname, "src/index.ts"),
+        isSafeApply: resolve(__dirname, "src/isSafeApply.ts"),
+      },
       name: "NanoRFC6902",
       formats: ["es", "cjs"],
-      fileName: (format) => `index.${format === "es" ? "js" : "cjs"}`,
+      // Emit file per entry name
+      fileName: (format, entryName) =>
+        `${entryName}.${format === "es" ? "js" : "cjs"}`,
     },
     rollupOptions: {
       external: [],
@@ -23,6 +32,6 @@ export default defineConfig({
       },
     },
     target: "es2020",
-    sourcemap: true,
+    sourcemap: false,
   },
 });

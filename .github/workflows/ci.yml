@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: write
-  id-token: write  # Required for npm provenance
+  id-token: write # Required for npm provenance
 
 jobs:
   build-and-test:
@@ -45,7 +45,7 @@ jobs:
         run: |
           git config user.name "Oleksandr Boichenko"
           git config user.email "banzalik@gmail.com"
-          
+
           npm install -g npm@latest
 
           # Bump patch version
