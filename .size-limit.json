@@ -1,6 +1,6 @@
 [
-  {
-    "path": "dist/index.js",
-    "limit": "2 KB"
-  }
+  { "path": "dist/index.js", "limit": "2 KB" },
+  { "path": "dist/index.js", "import": "{ applyPatch }", "limit": "1 KB" },
+  { "path": "dist/index.js", "import": "{ createPatch }", "limit": "1 KB" },
+  { "path": "dist/isSafeApply.js", "limit": "0.5 KB" }
 ]
