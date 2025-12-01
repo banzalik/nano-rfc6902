@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyPatch } from "./index";
+import { applyPatch } from "../index.ts";
 
 describe("applyPatch", () => {
   describe("add operation", () => {

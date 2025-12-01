@@ -9,7 +9,7 @@ import type {
   MoveOperation,
   CopyOperation,
   TestOperation,
-} from "./types";
+} from "../types.ts";
 
 describe("types", () => {
   describe("JSONValue", () => {

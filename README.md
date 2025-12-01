@@ -12,6 +12,7 @@ Lightweight JSON Patch (RFC 6902) utilities for Node.js and the browser.
 [![node version](https://img.shields.io/node/v/nano-rfc6902)](https://www.npmjs.com/package/nano-rfc6902)
 
 Highlights:
+
 - Zero dependencies
 - Tiny footprint (≤ 2 kB min+gz)
 - Fast diff/patch
@@ -118,6 +119,55 @@ Applies an RFC 6902 patch to `target` in-place.
 - Supports `add`, `remove`, `replace`, `move`, `copy`, and `test`.
 - Uses JSON Pointer (RFC 6901) for `path` and `from` fields (e.g., `/a/b/0`).
 - Throws if paths are invalid or `test` fails.
+
+### Utils: isSafeApply(patch) => boolean
+
+A small utility exported as a separate entry that validates whether a patch only targets object keys (and never array indices or the special `-` append). Returns `true` if the patch is safe to apply without mutating array positions. Implementation: [TypeScript.isSafeApply()](src/utils/isSafeApply.ts:4)
+
+Import
+
+- ESM:
+  ```js
+  import { isSafeApply } from "nano-rfc6902/isSafeApply";
+  ```
+- CommonJS:
+  ```js
+  const { isSafeApply } = require("nano-rfc6902/isSafeApply");
+  ```
+
+Safe examples (true)
+
+```js
+import { isSafeApply } from "nano-rfc6902/isSafeApply";
+
+const patch = [
+  { op: "add", path: "/user/name", value: "Ada" },
+  { op: "replace", path: "/meta/title", value: "Dr." },
+  { op: "test", path: "/count", value: 1 },
+];
+isSafeApply(patch); // true
+```
+
+Unsafe examples (false)
+
+```js
+import { isSafeApply } from "nano-rfc6902/isSafeApply";
+
+// Targets array index
+isSafeApply([{ op: "add", path: "/items/0", value: "a" }]); // false
+
+// Appends to array end
+isSafeApply([{ op: "add", path: "/items/-", value: "a" }]); // false
+
+// move/copy touching arrays (either from or path)
+isSafeApply([{ op: "move", from: "/items/0", path: "/items/1" }]); // false
+isSafeApply([{ op: "copy", from: "/a/0", path: "/b/0" }]); // false
+```
+
+Notes
+
+- For `move` and `copy`, both `from` and `path` must be object-key paths (no array indices or `-`).
+- Empty patches are considered safe.
 
 ### Types (TypeScript)
 
