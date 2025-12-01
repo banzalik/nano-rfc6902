@@ -44,6 +44,9 @@ jobs:
             coverage/**
           if-no-files-found: error
 
+      - name: Install lcov (genhtml)
+        run: sudo apt-get update && sudo apt-get install -y lcov
+
       - name: Report coverage to PR
         if: ${{ github.event_name == 'pull_request' }}
         uses: zgosalvez/github-actions-report-lcov@v4
