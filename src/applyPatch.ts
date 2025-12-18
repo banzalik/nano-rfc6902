@@ -186,14 +186,23 @@ const addValueAtPath = (
       throw new Error(`Path does not exist: ${path}`);
     }
 
-    const next = Array.isArray(current)
-      ? current[parseInt(token, 10)]
-      : (current as any)[token];
-    if (next === undefined || next === null) {
-      throw new Error(`Path does not exist: ${path}`);
+    if (Array.isArray(current)) {
+      const index = parseInt(token, 10);
+      const next = current[index];
+      if (next === undefined || next === null) {
+        throw new Error(`Path does not exist: ${path}`);
+      }
+      current = next;
+    } else {
+      // For objects, auto-create intermediate paths if they don't exist
+      let next = (current as any)[token];
+      if (next === undefined || next === null) {
+        // Auto-create intermediate object
+        next = {};
+        (current as any)[token] = next;
+      }
+      current = next;
     }
-
-    current = next;
   }
 
   const lastToken = tokens[tokens.length - 1];

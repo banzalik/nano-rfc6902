@@ -24,6 +24,14 @@ describe("applyPatch", () => {
       expect(obj).toEqual({ person: { first: "Chris", last: "Brown" } });
     });
 
+    it("should add deep nested property", () => {
+      const obj = {};
+      applyPatch(obj, [
+        { op: "add", path: "/user/last/foo/bar", value: "Brown" },
+      ]);
+      expect(obj).toEqual({ user: { last: { foo: { bar: "Brown" } } } });
+    });
+
     it("should add array element at specific index", () => {
       const arr = [1, 2, 3];
       applyPatch(arr, [{ op: "add", path: "/1", value: 1.5 }]);

@@ -232,15 +232,31 @@ describe("createPatch", () => {
 
     it("should detect multiple deletes from array", () => {
       const patch = createPatch([1, 2, 3, 4, 5], [1, 3, 5]);
-      expect(
-        patch.filter((op) => op.op === "remove").length,
-      ).toBeGreaterThanOrEqual(2);
+      expect(patch).toEqual([
+        {
+          op: "remove",
+          path: "/1",
+        },
+        {
+          op: "remove",
+          path: "/2",
+        },
+      ]);
     });
 
     it("should detect move inside array (element shifted)", () => {
       const patch = createPatch([1, 2, 3, 4], [2, 3, 4, 1]);
-      // Moving an element can be detected as remove + add
-      expect(patch.length).toBeGreaterThan(0);
+      expect(patch).toEqual([
+        {
+          op: "remove",
+          path: "/0",
+        },
+        {
+          op: "add",
+          path: "/3",
+          value: 1,
+        },
+      ]);
     });
 
     it("should handle array of objects with modifications", () => {
