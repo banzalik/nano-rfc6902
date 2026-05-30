@@ -14,7 +14,7 @@ Lightweight JSON Patch (RFC 6902) utilities for Node.js and the browser.
 Highlights:
 
 - Zero dependencies
-- Tiny footprint (≤ 2 kB min+gz)
+- Tiny footprint (size-limit: 3 kB max, currently ~1.93 kB brotli)
 - Fast diff/patch
 - ESM + CJS + types
 - Works in Node.js and modern browsers
@@ -27,6 +27,83 @@ Highlights:
 ```bash
 npm install nano-rfc6902
 ```
+
+## Benchmark (nano-rfc6902 vs rfc6902)
+
+Run:
+
+```bash
+npm run benchmark
+```
+
+Per-operation benchmark (RFC ops):
+
+```bash
+npm run benchmark:ops
+```
+
+What it does:
+
+- Builds this library (`dist`) first.
+- Runs `benchmark/compare.mjs` with warmup and repeated iterations.
+- Prints `diff` and `patch` throughput for `nano-rfc6902` and `rfc6902`.
+- `benchmark:ops` prints per-operation throughput for `applyPatch` (`add`, `remove`, `replace`, `move`, `copy`, `test`).
+- `createPatch` is diff-based and benchmarks per-op only where applicable (`add`, `remove`, `replace`); `move`/`copy`/`test` are reported as unsupported by design.
+
+How to compare fairly:
+
+- Use the same machine and Node.js version.
+- Run several times and compare medians, not a single run.
+- Treat results as workload-specific (your real data shape may differ).
+
+Sample results (May 30, 2026, Node 20, iterations=5000, warmup=500, runs=21 median):
+
+```text
+Diff benchmark
+nano-rfc6902  | total=   42.66ms | avg=  0.0085ms/op | throughput=  117207 ops/s
+rfc6902       | total=  533.67ms | avg=  0.1067ms/op | throughput=    9369 ops/s
+
+Patch benchmark
+nano-rfc6902  | total=   34.07ms | avg=  0.0068ms/op | throughput=  146775 ops/s | patch=12
+rfc6902       | total=   80.52ms | avg=  0.0161ms/op | throughput=   62096 ops/s | patch=12
+```
+
+Speed on this fixture (throughput):
+
+- Diff: `nano-rfc6902` is ~12.51x faster than `rfc6902`.
+- Patch: `nano-rfc6902` is ~2.36x faster than `rfc6902`.
+
+Per-operation sample (`npm run benchmark:ops`, same env):
+
+```text
+applyPatch
+add      | nano=13025345 ops/s | rfc6902= 892836 ops/s
+remove   | nano= 3707169 ops/s | rfc6902= 660545 ops/s
+replace  | nano= 5354850 ops/s | rfc6902=2156075 ops/s
+move     | nano= 2571448 ops/s | rfc6902= 820362 ops/s
+copy     | nano= 6669690 ops/s | rfc6902= 990198 ops/s
+test     | nano= 6751812 ops/s | rfc6902=1754571 ops/s
+
+createPatch
+add      | nano=2374326 ops/s | rfc6902= 130955 ops/s
+remove   | nano=2372869 ops/s | rfc6902= 133718 ops/s
+replace  | nano= 497928 ops/s | rfc6902= 176571 ops/s
+move/copy/test: unsupported by createPatch (diff-based)
+```
+
+Who is faster (per operation, lower total time over 5000 iterations):
+
+| Operation | API | Faster Library | Speedup |
+| --- | --- | --- | --- |
+| add | applyPatch | nano-rfc6902 | ~14.74x |
+| remove | applyPatch | nano-rfc6902 | ~5.61x |
+| replace | applyPatch | nano-rfc6902 | ~2.49x |
+| move | applyPatch | nano-rfc6902 | ~3.14x |
+| copy | applyPatch | nano-rfc6902 | ~6.73x |
+| test | applyPatch | nano-rfc6902 | ~3.85x |
+| add | createPatch | nano-rfc6902 | ~18.10x |
+| remove | createPatch | nano-rfc6902 | ~17.72x |
+| replace | createPatch | nano-rfc6902 | ~2.82x |
 
 ## Quick start
 
@@ -514,10 +591,21 @@ npm run type-check
 npm test
 ```
 
+### Size check
+
+```bash
+npm run size
+```
+
+Current size-limit target and result:
+
+- Limit: `3 kB` (`dist/index.js`)
+- Measured: `~1.93 kB` (minified + brotli)
+
 ## Features
 
 - Zero dependencies
-- Tiny footprint: ≤ 2 kB min+gz (size-limit target)
+- Tiny footprint: 3 kB max (size-limit target), currently ~1.93 kB min+brotli
 - Fast and efficient diff/patch
 - JSON Patch (RFC 6902) create/apply
 - Small API surface

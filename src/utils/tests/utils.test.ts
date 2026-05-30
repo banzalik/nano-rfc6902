@@ -7,6 +7,11 @@ import {
 } from "../utils";
 
 describe("pointerSegments", () => {
+  it("handles root and empty pointers", () => {
+    expect(pointerSegments("")).toEqual([]);
+    expect(pointerSegments("/")).toEqual([""]);
+  });
+
   it("returns empty for empty or invalid pointers", () => {
     expect(pointerSegments("")).toEqual([]);
     expect(pointerSegments("not/a/pointer")).toEqual([]);
@@ -16,6 +21,10 @@ describe("pointerSegments", () => {
     const ptr = "/a/0/b~1c/~0tilde";
     expect(pointerSegments(ptr)).toEqual(["a", "0", "b/c", "~tilde"]);
   });
+
+  it("keeps array append token", () => {
+    expect(pointerSegments("/abc/-")).toEqual(["abc", "-"]);
+  });
 });
 
 describe("unescapePointer", () => {
@@ -24,6 +33,10 @@ describe("unescapePointer", () => {
     expect(unescapePointer("~0")).toBe("~");
     // RFC 6901: "~1" -> "/", "~0" -> "~"
     expect(unescapePointer("a~1b~0c")).toBe("a/b~c");
+  });
+
+  it("leaves plain tokens unchanged", () => {
+    expect(unescapePointer("plain")).toBe("plain");
   });
 });
 
@@ -47,5 +60,9 @@ describe("isArrayPointer", () => {
     expect(isArrayPointer("/nested/arr/10/prop")).toBe(true);
     expect(isArrayPointer("/user/name")).toBe(false);
     expect(isArrayPointer("/a/b~1c")).toBe(false);
+  });
+
+  it("does not mark root-only pointer as array", () => {
+    expect(isArrayPointer("/")).toBe(false);
   });
 });

@@ -3,6 +3,8 @@
  */
 import type { JSONValue, Operation } from "./types";
 
+const hasOwn = Object.prototype.hasOwnProperty;
+
 /**
  * Deep equality check
  */
@@ -36,8 +38,9 @@ const deepEqual = (a: JSONValue, b: JSONValue): boolean => {
 
     if (keysA.length !== keysB.length) return false;
 
-    for (const key of keysA) {
-      if (!keysB.includes(key)) return false;
+    for (let i = 0; i < keysA.length; i++) {
+      const key = keysA[i];
+      if (!hasOwn.call(objB, key)) return false;
       if (!deepEqual(objA[key], objB[key])) return false;
     }
 
@@ -51,15 +54,27 @@ const deepEqual = (a: JSONValue, b: JSONValue): boolean => {
  * Escape a token for JSON Pointer
  */
 const escapeToken = (token: string): string => {
-  return token.replace(/~/g, "~0").replace(/\//g, "~1");
+  if (token.indexOf("~") === -1 && token.indexOf("/") === -1) {
+    return token;
+  }
+
+  let escaped = "";
+  for (let i = 0; i < token.length; i++) {
+    const ch = token[i];
+    if (ch === "~") {
+      escaped += "~0";
+    } else if (ch === "/") {
+      escaped += "~1";
+    } else {
+      escaped += ch;
+    }
+  }
+  return escaped;
 };
 
-/**
- * Build a JSON Pointer path from tokens
- */
-const buildPath = (tokens: string[]): string => {
-  if (tokens.length === 0) return "";
-  return "/" + tokens.map(escapeToken).join("/");
+const appendPath = (basePath: string, token: string): string => {
+  const escaped = escapeToken(token);
+  return basePath === "" ? `/${escaped}` : `${basePath}/${escaped}`;
 };
 
 /**
@@ -75,7 +90,11 @@ const canDiff = (a: JSONValue, b: JSONValue): boolean => {
 /**
  * Compute LCS (Longest Common Subsequence) length matrix
  */
-const computeLCS = (oldArr: JSONValue[], newArr: JSONValue[]): number[][] => {
+const computeLCS = (
+  oldArr: JSONValue[],
+  newArr: JSONValue[],
+  isEqual: (i: number, j: number) => boolean,
+): number[][] => {
   const m = oldArr.length;
   const n = newArr.length;
   const lcs: number[][] = Array(m + 1)
@@ -84,7 +103,7 @@ const computeLCS = (oldArr: JSONValue[], newArr: JSONValue[]): number[][] => {
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      if (deepEqual(oldArr[i - 1], newArr[j - 1])) {
+      if (isEqual(i - 1, j - 1)) {
         lcs[i][j] = lcs[i - 1][j - 1] + 1;
       } else {
         lcs[i][j] = Math.max(lcs[i - 1][j], lcs[i][j - 1]);
@@ -115,6 +134,19 @@ const computeArrayDiff = (
   }[] = [];
   const m = oldArr.length;
   const n = newArr.length;
+  const equalCache: boolean[][] = Array(m)
+    .fill(0)
+    .map(() => Array(n));
+
+  const isEqual = (i: number, j: number): boolean => {
+    const cached = equalCache[i][j];
+    if (cached !== undefined) {
+      return cached;
+    }
+    const result = deepEqual(oldArr[i], newArr[j]);
+    equalCache[i][j] = result;
+    return result;
+  };
 
   // Handle empty arrays
   if (m === 0 && n === 0) return edits;
@@ -131,7 +163,7 @@ const computeArrayDiff = (
     return edits;
   }
 
-  const lcs = computeLCS(oldArr, newArr);
+  const lcs = computeLCS(oldArr, newArr, isEqual);
 
   // Backtrack to find the edit sequence
   let i = m;
@@ -144,7 +176,7 @@ const computeArrayDiff = (
   }[] = [];
 
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && deepEqual(oldArr[i - 1], newArr[j - 1])) {
+    if (i > 0 && j > 0 && isEqual(i - 1, j - 1)) {
       // Elements are equal - keep
       backtrack.push({ type: "keep", oldIndex: i - 1, newIndex: j - 1 });
       i--;
@@ -187,11 +219,7 @@ const computeArrayDiff = (
 /**
  * Compare two values and generate patch operations
  */
-const diff = (
-  oldVal: JSONValue,
-  newVal: JSONValue,
-  path: string[] = [],
-): Operation[] => {
+const diff = (oldVal: JSONValue, newVal: JSONValue, path = ""): Operation[] => {
   const operations: Operation[] = [];
 
   // If values are equal, no patch needed
@@ -202,7 +230,7 @@ const diff = (
   // Handle null (but not undefined at object property level)
   if (oldVal === null || newVal === null) {
     if (oldVal !== newVal) {
-      operations.push({ op: "replace", path: buildPath(path), value: newVal });
+      operations.push({ op: "replace", path, value: newVal });
     }
     return operations;
   }
@@ -210,22 +238,22 @@ const diff = (
   // Handle undefined - only for root level or array elements
   if (oldVal === undefined || newVal === undefined) {
     if (oldVal === undefined && newVal !== undefined) {
-      operations.push({ op: "add", path: buildPath(path), value: newVal });
+      operations.push({ op: "add", path, value: newVal });
     } else if (oldVal !== undefined && newVal === undefined) {
-      operations.push({ op: "remove", path: buildPath(path) });
+      operations.push({ op: "remove", path });
     }
     return operations;
   }
 
   // Handle primitives
   if (typeof oldVal !== "object" || typeof newVal !== "object") {
-    operations.push({ op: "replace", path: buildPath(path), value: newVal });
+    operations.push({ op: "replace", path, value: newVal });
     return operations;
   }
 
   // Handle array to non-array or non-array to array
   if (Array.isArray(oldVal) !== Array.isArray(newVal)) {
-    operations.push({ op: "replace", path: buildPath(path), value: newVal });
+    operations.push({ op: "replace", path, value: newVal });
     return operations;
   }
 
@@ -239,30 +267,32 @@ const diff = (
     for (const edit of edits) {
       if (edit.type === "keep") {
         // Check if the kept element has internal changes
-        const nestedOps = diff(oldVal[edit.oldIndex!], newVal[edit.newIndex!], [
-          ...path,
-          String(currentIndex),
-        ]);
+        const nestedPath = appendPath(path, String(currentIndex));
+        const nestedOps = diff(
+          oldVal[edit.oldIndex!],
+          newVal[edit.newIndex!],
+          nestedPath,
+        );
         operations.push(...nestedOps);
         currentIndex++;
       } else if (edit.type === "replace") {
         operations.push({
           op: "replace",
-          path: buildPath([...path, String(currentIndex)]),
+          path: appendPath(path, String(currentIndex)),
           value: edit.value,
         });
         currentIndex++;
       } else if (edit.type === "add") {
         operations.push({
           op: "add",
-          path: buildPath([...path, String(currentIndex)]),
+          path: appendPath(path, String(currentIndex)),
           value: edit.value,
         });
         currentIndex++;
       } else if (edit.type === "remove") {
         operations.push({
           op: "remove",
-          path: buildPath([...path, String(currentIndex)]),
+          path: appendPath(path, String(currentIndex)),
         });
         // Don't increment currentIndex for removes
       }
@@ -280,23 +310,23 @@ const diff = (
 
   // Find removed keys
   for (const key of oldKeys) {
-    if (!(key in objNew)) {
-      operations.push({ op: "remove", path: buildPath([...path, key]) });
+    if (!hasOwn.call(objNew, key)) {
+      operations.push({ op: "remove", path: appendPath(path, key) });
     }
   }
 
   // Find added and modified keys
   for (const key of newKeys) {
-    if (!(key in objOld)) {
+    if (!hasOwn.call(objOld, key)) {
       // Added key
       operations.push({
         op: "add",
-        path: buildPath([...path, key]),
+        path: appendPath(path, key),
         value: objNew[key],
       });
     } else {
       // Potentially modified key
-      operations.push(...diff(objOld[key], objNew[key], [...path, key]));
+      operations.push(...diff(objOld[key], objNew[key], appendPath(path, key)));
     }
   }
 
@@ -310,5 +340,5 @@ export const createPatch = (
   oldObj: JSONValue,
   newObj: JSONValue,
 ): Operation[] => {
-  return diff(oldObj, newObj, []);
+  return diff(oldObj, newObj, "");
 };

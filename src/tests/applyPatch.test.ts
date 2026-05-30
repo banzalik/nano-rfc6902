@@ -300,6 +300,86 @@ describe("applyPatch", () => {
         applyPatch(obj, [{ op: "test", path: "/data", value: { a: 1, b: 2 } }]);
       }).toThrow();
     });
+
+    it("rfc6901 examples should resolve expected values", () => {
+      const obj = {
+        foo: ["bar", "baz"],
+        "": 0,
+        "a/b": 1,
+        "c%d": 2,
+        "e^f": 3,
+        "g|h": 4,
+        "i\\j": 5,
+        "k'l": 6,
+        " ": 7,
+        "m~n": 8,
+      };
+
+      const pointers = [
+        { path: "", expected: obj },
+        { path: "/foo", expected: ["bar", "baz"] },
+        { path: "/foo/0", expected: "bar" },
+        { path: "/", expected: 0 },
+        { path: "/a~1b", expected: 1 },
+        { path: "/c%d", expected: 2 },
+        { path: "/e^f", expected: 3 },
+        { path: "/g|h", expected: 4 },
+        { path: "/i\\j", expected: 5 },
+        { path: "/k'l", expected: 6 },
+        { path: "/ ", expected: 7 },
+        { path: "/m~0n", expected: 8 },
+      ];
+
+      for (const pointer of pointers) {
+        expect(() => {
+          applyPatch(obj, [
+            { op: "test", path: pointer.path, value: pointer.expected },
+          ]);
+        }).not.toThrow();
+      }
+    });
+
+    it("package-style pointer examples should resolve expected values", () => {
+      const obj = {
+        first: "chris",
+        last: "brown",
+        github: {
+          account: {
+            id: "chbrown",
+            handle: "@chbrown",
+          },
+          repos: ["amulet", "twilight", "rfc6902"],
+          stars: [
+            {
+              owner: "raspberrypi",
+              repo: "userland",
+            },
+            {
+              owner: "angular",
+              repo: "angular.js",
+            },
+          ],
+        },
+        "github/account": "deprecated",
+      };
+
+      const pointers = [
+        { path: "/first", expected: "chris" },
+        { path: "/github~1account", expected: "deprecated" },
+        { path: "/github/account/handle", expected: "@chbrown" },
+        { path: "/github/repos", expected: ["amulet", "twilight", "rfc6902"] },
+        { path: "/github/repos/2", expected: "rfc6902" },
+        { path: "/github/stars/0/repo", expected: "userland" },
+      ];
+
+      for (const pointer of pointers) {
+        expect(() => {
+          applyPatch(obj, [
+            { op: "test", path: pointer.path, value: pointer.expected },
+          ]);
+        }).not.toThrow();
+      }
+    });
   });
 
   describe("complex scenarios", () => {
@@ -433,6 +513,60 @@ describe("applyPatch", () => {
         { op: "replace", path: "/c~1d", value: "updated2" },
       ]);
       expect(obj).toEqual({ "a~b": "updated1", "c/d": "updated2" });
+    });
+
+    it("issues-inspired: should keep object unchanged for broken remove", () => {
+      const user = { id: "chbrown" };
+      expect(() => {
+        applyPatch(user, [{ op: "remove", path: "/name" }]);
+      }).toThrow();
+      expect(user).toEqual({ id: "chbrown" });
+    });
+
+    it("issues-inspired: should keep object unchanged for broken replace", () => {
+      const user = { id: "chbrown" };
+      expect(() => {
+        applyPatch(user, [{ op: "replace", path: "/name", value: 1 }]);
+      }).toThrow();
+      expect(user).toEqual({ id: "chbrown" });
+    });
+
+    it("issues-inspired: should keep array unchanged for broken replace index", () => {
+      const users = [{ id: "chbrown" }];
+      expect(() => {
+        applyPatch(users, [
+          { op: "replace", path: "/1", value: { id: "chbrown2" } },
+        ]);
+      }).toThrow();
+      expect(users).toEqual([{ id: "chbrown" }]);
+    });
+
+    it("issues-inspired: should keep object unchanged for broken move from", () => {
+      const user = { id: "chbrown" };
+      expect(() => {
+        applyPatch(user, [{ op: "move", from: "/name", path: "/id" }]);
+      }).toThrow();
+      expect(user).toEqual({ id: "chbrown" });
+    });
+
+    it("issues-inspired: should keep object unchanged for broken copy from", () => {
+      const user = { id: "chbrown" };
+      expect(() => {
+        applyPatch(user, [{ op: "copy", from: "/name", path: "/id" }]);
+      }).toThrow();
+      expect(user).toEqual({ id: "chbrown" });
+    });
+
+    it("issues-inspired: should append using /- when array exists", () => {
+      const user = { id: "chbrown", tag: [999] };
+      applyPatch(user, [{ op: "add", path: "/tag/-", value: 123 }]);
+      expect(user).toEqual({ id: "chbrown", tag: [999, 123] });
+    });
+
+    it("issues-inspired: should auto-create intermediate object path on add", () => {
+      const user = { id: "chbrown" };
+      applyPatch(user, [{ op: "add", path: "/a/b", value: 1 }]);
+      expect(user).toEqual({ id: "chbrown", a: { b: 1 } });
     });
   });
 

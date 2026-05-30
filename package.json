@@ -27,6 +27,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "benchmark": "npm run build && node benchmark/compare.mjs",
+    "benchmark:ops": "npm run build && node benchmark/operations.mjs",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "coverage": "vitest --coverage run",
@@ -37,6 +39,12 @@
     "check": "npm run prettier && npm run lint && npm run coverage && npm run size",
     "prepare": "husky"
   },
+  "size-limit": [
+    {
+      "path": "dist/index.js",
+      "limit": "3 KB"
+    }
+  ],
   "lint-staged": {
     "*.ts": [
       "prettier --write",
@@ -44,8 +52,8 @@
     ]
   },
   "devDependencies": {
+    "@size-limit/file": "12.0.0",
     "@size-limit/esbuild": "12.0.0",
-    "@size-limit/preset-app": "11.2.0",
     "@types/node": "24.10.1",
     "@vitest/coverage-v8": "4.0.14",
     "@vitest/ui": "4.0.14",
@@ -53,6 +61,7 @@
     "husky": "9.1.7",
     "lint-staged": "16.2.7",
     "prettier": "3.6.2",
+    "rfc6902": "5.2.0",
     "typescript": "5.9.3",
     "vite": "7.2.4",
     "vite-plugin-dts": "4.5.4",
