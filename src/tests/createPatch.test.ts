@@ -172,6 +172,41 @@ describe("createPatch", () => {
   });
 
   describe("array operations", () => {
+    it("should round-trip provided array pairs via createPatch + applyPatch", () => {
+      const pairs: Array<[string[], string[]]> = [
+        [["A", "Z", "Z"], ["A"]],
+        [
+          ["A", "B"],
+          ["B", "A"],
+        ],
+        [[], ["A", "B"]],
+        [
+          ["B", "A", "M"],
+          ["M", "A", "A"],
+        ],
+        [["A", "A", "R"], []],
+        [
+          ["A", "B", "C"],
+          ["B", "C", "D"],
+        ],
+        [
+          ["A", "C"],
+          ["A", "B", "C"],
+        ],
+        [
+          ["A", "B", "C"],
+          ["A", "Z"],
+        ],
+      ];
+
+      for (const [input, output] of pairs) {
+        const patch = createPatch(input, output);
+        const actualOutput = structuredClone(input);
+        applyPatch(actualOutput, patch);
+        expect(actualOutput).toEqual(output);
+      }
+    });
+
     it("should handle empty to array", () => {
       const patch = createPatch([], [1, 2, 3]);
       expect(patch).toEqual([
@@ -454,9 +489,141 @@ describe("createPatch", () => {
       const patch = createPatch([1, 2, 3], []);
       expect(patch.filter((op) => op.op === "remove").length).toBe(3);
     });
+
+    it("issues/4 should reorder two elements", () => {
+      const input = ["A", "B"];
+      const output = ["B", "A"];
+
+      const patch = createPatch(input, output);
+      const actualOutput = structuredClone(input);
+
+      applyPatch(actualOutput, patch);
+      expect(actualOutput).toEqual(output);
+    });
+
+    it("issues/5 should build array from empty", () => {
+      const input: string[] = [];
+      const output = ["A", "B"];
+
+      const patch = createPatch(input, output);
+      const actualOutput = structuredClone(input);
+
+      applyPatch(actualOutput, patch);
+      expect(actualOutput).toEqual(output);
+    });
+
+    it("issues/9 should patch nested object in array", () => {
+      const input = [{ A: 1, B: 2 }, { C: 3 }];
+      const output = [{ A: 1, B: 20 }, { C: 3 }];
+      const expectedPatch = [{ op: "replace", path: "/0/B", value: 20 }];
+
+      const patch = createPatch(input, output);
+      expect(patch).toEqual(expectedPatch);
+
+      const actualOutput = structuredClone(input);
+      applyPatch(actualOutput, patch);
+      expect(actualOutput).toEqual(output);
+    });
+
+    it("issues/34 should handle sparse arrays via replace", () => {
+      const input = [3, 4];
+      const output = [3, 4];
+      delete output[0];
+      const expectedPatch = [{ op: "replace", path: "/0", value: undefined }];
+
+      const patch = createPatch(input, output);
+      expect(patch).toEqual(expectedPatch);
+
+      const actualOutput = structuredClone(input);
+      applyPatch(actualOutput, patch);
+      expect(actualOutput).toEqual(output);
+    });
+
+    it("issues/36 should replace undefined array slot", () => {
+      const input = [undefined, "B"];
+      const output = ["A", "B"];
+      const expectedPatch = [{ op: "replace", path: "/0", value: "A" }];
+
+      const patch = createPatch(input, output);
+      expect(patch).toEqual(expectedPatch);
+
+      const actualOutput = structuredClone(input);
+      applyPatch(actualOutput, patch);
+      expect(actualOutput).toEqual(output);
+    });
   });
 
   describe("complex nested structures", () => {
+    it("issues/3 should remove duplicate tail elements", () => {
+      const input = { arr: ["1", "2", "2"] };
+      const output = { arr: ["1"] };
+      const expectedPatch = [
+        { op: "remove", path: "/arr/1" },
+        { op: "remove", path: "/arr/1" },
+      ];
+
+      const patch = createPatch(input, output);
+      expect(patch).toEqual(expectedPatch);
+
+      const actualOutput = structuredClone(input);
+      applyPatch(actualOutput, patch);
+      expect(actualOutput).toEqual(output);
+    });
+
+    it("issues/12 should add values in middle of array", () => {
+      const input = { name: "ABC", repositories: ["a", "e"] };
+      const output = { name: "ABC", repositories: ["a", "b", "c", "d", "e"] };
+      const expectedPatch = [
+        { op: "add", path: "/repositories/1", value: "b" },
+        { op: "add", path: "/repositories/2", value: "c" },
+        { op: "add", path: "/repositories/3", value: "d" },
+      ];
+
+      const patch = createPatch(input, output);
+      expect(patch).toEqual(expectedPatch);
+
+      const actualOutput = structuredClone(input);
+      applyPatch(actualOutput, patch);
+      expect(actualOutput).toEqual(output);
+    });
+
+    it("issues/33 should replace object root child with array and back", () => {
+      const objectValue = { root: { 0: 4 } };
+      const arrayValue = { root: [4] };
+
+      const objectToArrayPatch = createPatch(objectValue, arrayValue);
+      expect(objectToArrayPatch).toEqual([
+        { op: "replace", path: "/root", value: [4] },
+      ]);
+      const objectToArray = structuredClone(objectValue);
+      applyPatch(objectToArray, objectToArrayPatch);
+      expect(objectToArray).toEqual(arrayValue);
+
+      const arrayToObjectPatch = createPatch(arrayValue, objectValue);
+      expect(arrayToObjectPatch).toEqual([
+        { op: "replace", path: "/root", value: { 0: 4 } },
+      ]);
+      const arrayToObject = structuredClone(arrayValue);
+      applyPatch(arrayToObject, arrayToObjectPatch);
+      expect(arrayToObject).toEqual(objectValue);
+    });
+
+    it("issues/35 should add formerly undefined key and replace null", () => {
+      const input = { name: "bob", image: undefined, cat: null };
+      const output = { name: "bob", image: "foo.jpg", cat: "nikko" };
+      const expectedPatch = [
+        { op: "add", path: "/image", value: "foo.jpg" },
+        { op: "replace", path: "/cat", value: "nikko" },
+      ];
+
+      const patch = createPatch(input, output);
+      expect(patch).toEqual(expectedPatch);
+
+      const actualOutput = structuredClone(input);
+      applyPatch(actualOutput, patch);
+      expect(actualOutput).toEqual(output);
+    });
+
     it("should handle deeply nested objects with arrays", () => {
       const obj1 = {
         a: [{ b: 123 }, { c: 456 }, { d: "dasd" }],
@@ -743,6 +910,69 @@ describe("createPatch", () => {
   });
 
   describe("JSON serialization", () => {
+    it("spec-inspired fixtures should apply patch to expected output", () => {
+      const specData = [
+        {
+          name: "add object key",
+          input: { a: 1 },
+          patch: [{ op: "add", path: "/b", value: 2 }],
+          output: { a: 1, b: 2 },
+        },
+        {
+          name: "remove array index",
+          input: [10, 20, 30],
+          patch: [{ op: "remove", path: "/1" }],
+          output: [10, 30],
+        },
+        {
+          name: "replace nested value",
+          input: { obj: { a: "A", b: "B" } },
+          patch: [{ op: "replace", path: "/obj/b", value: "BBB" }],
+          output: { obj: { a: "A", b: "BBB" } },
+        },
+        {
+          name: "copy to array append",
+          input: { current: { timestamp: 23 }, history: [] },
+          patch: [{ op: "copy", from: "/current", path: "/history/-" }],
+          output: { current: { timestamp: 23 }, history: [{ timestamp: 23 }] },
+        },
+      ];
+
+      for (const spec of specData) {
+        const actual = structuredClone(spec.input);
+        applyPatch(actual, spec.patch as any);
+        expect(actual).toEqual(spec.output);
+      }
+    });
+
+    it("spec-inspired fixtures should produce expected diffs", () => {
+      const specData = [
+        {
+          name: "add object key",
+          input: { a: 1 },
+          output: { a: 1, b: 2 },
+          expectedDiff: [{ op: "add", path: "/b", value: 2 }],
+        },
+        {
+          name: "remove array index",
+          input: [10, 20, 30],
+          output: [10, 30],
+          expectedDiff: [{ op: "remove", path: "/1" }],
+        },
+        {
+          name: "replace nested value",
+          input: { obj: { a: "A", b: "B" } },
+          output: { obj: { a: "A", b: "BBB" } },
+          expectedDiff: [{ op: "replace", path: "/obj/b", value: "BBB" }],
+        },
+      ];
+
+      for (const spec of specData) {
+        const diff = createPatch(spec.input as any, spec.output as any);
+        expect(diff).toEqual(spec.expectedDiff);
+      }
+    });
+
     it("should work with JSON.stringify/parse roundtrip", () => {
       const obj1 = { first: "Chris" };
       const obj2 = { first: "Chris", last: "Brown" };
