@@ -28,7 +28,7 @@ Highlights:
 npm install nano-rfc6902
 ```
 
-## Benchmark (nano-rfc6902 vs rfc6902)
+## Benchmark (nano-rfc6902 vs rfc6902 vs fast-json-patch)
 
 Run:
 
@@ -46,7 +46,7 @@ What it does:
 
 - Builds this library (`dist`) first.
 - Runs `benchmark/compare.mjs` with warmup and repeated iterations.
-- Prints `diff` and `patch` throughput for `nano-rfc6902` and `rfc6902`.
+- Prints `diff` and `patch` throughput for `nano-rfc6902`, `rfc6902`, and `fast-json-patch`.
 - `benchmark:ops` prints per-operation throughput for `applyPatch` (`add`, `remove`, `replace`, `move`, `copy`, `test`).
 - `createPatch` is diff-based and benchmarks per-op only where applicable (`add`, `remove`, `replace`); `move`/`copy`/`test` are reported as unsupported by design.
 
@@ -56,22 +56,24 @@ How to compare fairly:
 - Run several times and compare medians, not a single run.
 - Treat results as workload-specific (your real data shape may differ).
 
-Sample results (May 30, 2026, Node 20, iterations=5000, warmup=500, runs=21 median):
+Sample results (June 1, 2026, Node 24, iterations=5000, warmup=500, runs=21 median):
 
 ```text
 Diff benchmark
-nano-rfc6902  | total=   42.66ms | avg=  0.0085ms/op | throughput=  117207 ops/s
-rfc6902       | total=  533.67ms | avg=  0.1067ms/op | throughput=    9369 ops/s
+nano-rfc6902    | total=   42.53ms | avg=  0.0085ms/op | throughput=  117560 ops/s
+rfc6902         | total=  582.26ms | avg=  0.1165ms/op | throughput=    8587 ops/s
+fast-json-patch | total=   12.41ms | avg=  0.0025ms/op | throughput=  402821 ops/s
 
 Patch benchmark
-nano-rfc6902  | total=   34.07ms | avg=  0.0068ms/op | throughput=  146775 ops/s | patch=12
-rfc6902       | total=   80.52ms | avg=  0.0161ms/op | throughput=   62096 ops/s | patch=12
+nano-rfc6902    | total=   32.81ms | avg=  0.0066ms/op | throughput=  152389 ops/s | patch=12
+rfc6902         | total=   89.65ms | avg=  0.0179ms/op | throughput=   55770 ops/s | patch=12
+fast-json-patch | total=   62.58ms | avg=  0.0125ms/op | throughput=   79894 ops/s | patch=12
 ```
 
 Speed on this fixture (throughput):
 
-- Diff: `nano-rfc6902` is ~12.51x faster than `rfc6902`.
-- Patch: `nano-rfc6902` is ~2.36x faster than `rfc6902`.
+- Diff: `fast-json-patch` is ~3.43x faster than `nano-rfc6902` and ~46.91x faster than `rfc6902`.
+- Patch: `nano-rfc6902` is ~1.91x faster than `fast-json-patch` and ~2.73x faster than `rfc6902`.
 
 Per-operation sample (`npm run benchmark:ops`, same env):
 

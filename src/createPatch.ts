@@ -94,24 +94,27 @@ const computeLCS = (
   oldArr: JSONValue[],
   newArr: JSONValue[],
   isEqual: (i: number, j: number) => boolean,
-): number[][] => {
+): { matrix: Uint32Array; width: number } => {
   const m = oldArr.length;
   const n = newArr.length;
-  const lcs: number[][] = Array(m + 1)
-    .fill(0)
-    .map(() => Array(n + 1).fill(0));
+  const width = n + 1;
+  const matrix = new Uint32Array((m + 1) * width);
 
   for (let i = 1; i <= m; i++) {
+    const rowOffset = i * width;
+    const prevRowOffset = (i - 1) * width;
     for (let j = 1; j <= n; j++) {
       if (isEqual(i - 1, j - 1)) {
-        lcs[i][j] = lcs[i - 1][j - 1] + 1;
+        matrix[rowOffset + j] = matrix[prevRowOffset + (j - 1)] + 1;
       } else {
-        lcs[i][j] = Math.max(lcs[i - 1][j], lcs[i][j - 1]);
+        const up = matrix[prevRowOffset + j];
+        const left = matrix[rowOffset + (j - 1)];
+        matrix[rowOffset + j] = up > left ? up : left;
       }
     }
   }
 
-  return lcs;
+  return { matrix, width };
 };
 
 /**
@@ -132,8 +135,42 @@ const computeArrayDiff = (
     newIndex?: number;
     value?: JSONValue;
   }[] = [];
-  const m = oldArr.length;
-  const n = newArr.length;
+  const totalOld = oldArr.length;
+  const totalNew = newArr.length;
+
+  let prefixLen = 0;
+  while (
+    prefixLen < totalOld &&
+    prefixLen < totalNew &&
+    deepEqual(oldArr[prefixLen], newArr[prefixLen])
+  ) {
+    edits.push({
+      type: "keep",
+      oldIndex: prefixLen,
+      newIndex: prefixLen,
+    });
+    prefixLen++;
+  }
+
+  let suffixLen = 0;
+  while (
+    suffixLen < totalOld - prefixLen &&
+    suffixLen < totalNew - prefixLen &&
+    deepEqual(oldArr[totalOld - 1 - suffixLen], newArr[totalNew - 1 - suffixLen])
+  ) {
+    suffixLen++;
+  }
+
+  const oldStart = prefixLen;
+  const oldEnd = totalOld - suffixLen;
+  const newStart = prefixLen;
+  const newEnd = totalNew - suffixLen;
+
+  const oldMiddle = oldArr.slice(oldStart, oldEnd);
+  const newMiddle = newArr.slice(newStart, newEnd);
+
+  const m = oldMiddle.length;
+  const n = newMiddle.length;
   const equalCache: boolean[][] = Array(m)
     .fill(0)
     .map(() => Array(n));
@@ -143,27 +180,49 @@ const computeArrayDiff = (
     if (cached !== undefined) {
       return cached;
     }
-    const result = deepEqual(oldArr[i], newArr[j]);
+    const result = deepEqual(oldMiddle[i], newMiddle[j]);
     equalCache[i][j] = result;
     return result;
   };
 
   // Handle empty arrays
-  if (m === 0 && n === 0) return edits;
+  if (m === 0 && n === 0) {
+    for (let k = 0; k < suffixLen; k++) {
+      const oldIndex = totalOld - suffixLen + k;
+      const newIndex = totalNew - suffixLen + k;
+      edits.push({ type: "keep", oldIndex, newIndex });
+    }
+    return edits;
+  }
   if (m === 0) {
     for (let i = 0; i < n; i++) {
-      edits.push({ type: "add", newIndex: i, value: newArr[i] });
+      edits.push({
+        type: "add",
+        newIndex: newStart + i,
+        value: newMiddle[i],
+      });
+    }
+    for (let k = 0; k < suffixLen; k++) {
+      const oldIndex = totalOld - suffixLen + k;
+      const newIndex = totalNew - suffixLen + k;
+      edits.push({ type: "keep", oldIndex, newIndex });
     }
     return edits;
   }
   if (n === 0) {
     for (let i = m - 1; i >= 0; i--) {
-      edits.push({ type: "remove", oldIndex: i });
+      edits.push({ type: "remove", oldIndex: oldStart + i });
+    }
+    for (let k = 0; k < suffixLen; k++) {
+      const oldIndex = totalOld - suffixLen + k;
+      const newIndex = totalNew - suffixLen + k;
+      edits.push({ type: "keep", oldIndex, newIndex });
     }
     return edits;
   }
 
-  const lcs = computeLCS(oldArr, newArr, isEqual);
+  const { matrix: lcs, width } = computeLCS(oldMiddle, newMiddle, isEqual);
+  const lcsAt = (row: number, col: number): number => lcs[row * width + col];
 
   // Backtrack to find the edit sequence
   let i = m;
@@ -178,42 +237,62 @@ const computeArrayDiff = (
   while (i > 0 || j > 0) {
     if (i > 0 && j > 0 && isEqual(i - 1, j - 1)) {
       // Elements are equal - keep
-      backtrack.push({ type: "keep", oldIndex: i - 1, newIndex: j - 1 });
+      backtrack.push({
+        type: "keep",
+        oldIndex: oldStart + (i - 1),
+        newIndex: newStart + (j - 1),
+      });
       i--;
       j--;
     } else if (
       i > 0 &&
       j > 0 &&
-      lcs[i][j] === lcs[i - 1][j - 1] &&
-      canDiff(oldArr[i - 1], newArr[j - 1])
+      lcsAt(i, j) === lcsAt(i - 1, j - 1) &&
+      canDiff(oldMiddle[i - 1], newMiddle[j - 1])
     ) {
       // Both can move diagonally AND both are objects/arrays - use nested diffing
-      backtrack.push({ type: "keep", oldIndex: i - 1, newIndex: j - 1 });
-      i--;
-      j--;
-    } else if (i > 0 && j > 0 && lcs[i][j] === lcs[i - 1][j - 1]) {
-      // Both pointers can move diagonally, meaning this is a replacement
       backtrack.push({
-        type: "replace",
-        oldIndex: i - 1,
-        newIndex: j - 1,
-        value: newArr[j - 1],
+        type: "keep",
+        oldIndex: oldStart + (i - 1),
+        newIndex: newStart + (j - 1),
       });
       i--;
       j--;
-    } else if (j > 0 && (i === 0 || lcs[i][j - 1] >= lcs[i - 1][j])) {
+    } else if (i > 0 && j > 0 && lcsAt(i, j) === lcsAt(i - 1, j - 1)) {
+      // Both pointers can move diagonally, meaning this is a replacement
+      backtrack.push({
+        type: "replace",
+        oldIndex: oldStart + (i - 1),
+        newIndex: newStart + (j - 1),
+        value: newMiddle[j - 1],
+      });
+      i--;
+      j--;
+    } else if (j > 0 && (i === 0 || lcsAt(i, j - 1) >= lcsAt(i - 1, j))) {
       // Insertion
-      backtrack.push({ type: "add", newIndex: j - 1, value: newArr[j - 1] });
+      backtrack.push({
+        type: "add",
+        newIndex: newStart + (j - 1),
+        value: newMiddle[j - 1],
+      });
       j--;
     } else if (i > 0) {
       // Deletion
-      backtrack.push({ type: "remove", oldIndex: i - 1 });
+      backtrack.push({ type: "remove", oldIndex: oldStart + (i - 1) });
       i--;
     }
   }
 
   // Reverse to get forward order
-  return backtrack.reverse();
+  edits.push(...backtrack.reverse());
+
+  for (let k = 0; k < suffixLen; k++) {
+    const oldIndex = totalOld - suffixLen + k;
+    const newIndex = totalNew - suffixLen + k;
+    edits.push({ type: "keep", oldIndex, newIndex });
+  }
+
+  return edits;
 };
 
 /**

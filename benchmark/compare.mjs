@@ -1,5 +1,8 @@
 import { createPatch as nanoCreatePatch, applyPatch as nanoApplyPatch } from "../dist/index.js";
 import { createPatch as refCreatePatch, applyPatch as refApplyPatch } from "rfc6902";
+import fastJsonPatchPkg from "fast-json-patch";
+
+const { compare: fastCreatePatch, applyPatch: fastApplyPatchRaw } = fastJsonPatchPkg;
 
 const { process, console, structuredClone } = globalThis;
 
@@ -81,6 +84,11 @@ const withMedianDuration = (measureFn) => {
   };
 };
 
+const fastApplyPatch = (target, patch) => {
+  // Match the mutating apply behavior used by the other libraries.
+  fastApplyPatchRaw(target, patch, false, true);
+};
+
 const runDiffBenchmark = (name, createPatchFn, before, after) => {
   for (let i = 0; i < WARMUP; i++) {
     createPatchFn(before, after);
@@ -131,11 +139,13 @@ const runPatchBenchmark = (name, createPatchFn, applyPatchFn, before, after) => 
 };
 
 const printTable = (title, rows) => {
+  const nameWidth = Math.max(...rows.map((row) => row.name.length), 13);
+
   console.log(`\n${title}`);
   console.log("-".repeat(title.length));
   for (const row of rows) {
     const line = [
-      `${row.name.padEnd(13)}`,
+      `${row.name.padEnd(nameWidth)}`,
       `total=${row.totalMs.toFixed(2).padStart(8)}ms`,
       `avg=${row.perOpMs.toFixed(4).padStart(8)}ms/op`,
       `throughput=${row.opsPerSec.toFixed(0).padStart(8)} ops/s`,
@@ -150,17 +160,19 @@ const printTable = (title, rows) => {
 const main = () => {
   const { before, after } = makeFixtures();
 
-  console.log("JSON Patch benchmark: nano-rfc6902 vs rfc6902");
+  console.log("JSON Patch benchmark: nano-rfc6902 vs rfc6902 vs fast-json-patch");
   console.log(`Iterations: ${ITERATIONS}, Warmup: ${WARMUP}, Runs: ${Number.isInteger(RUNS) && RUNS > 0 ? RUNS : 1} (median)`);
 
   const diffRows = [
     runDiffBenchmark("nano-rfc6902", nanoCreatePatch, before, after),
     runDiffBenchmark("rfc6902", refCreatePatch, before, after),
+    runDiffBenchmark("fast-json-patch", fastCreatePatch, before, after),
   ];
 
   const patchRows = [
     runPatchBenchmark("nano-rfc6902", nanoCreatePatch, nanoApplyPatch, before, after),
     runPatchBenchmark("rfc6902", refCreatePatch, refApplyPatch, before, after),
+    runPatchBenchmark("fast-json-patch", fastCreatePatch, fastApplyPatch, before, after),
   ];
 
   printTable("Diff benchmark", diffRows);
